@@ -21,7 +21,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
              IO.inspect(three)
              four = 4
              IO.inspect(three)
-             IO.inspect(four)
+
+             IO.inspect(four: four,
+               force_format_on_new_line_with_really_long_atom: true
+             )
+
              # comment
            end
          end
@@ -45,7 +49,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "    IO.inspect(three)",
                "    four = 4",
                "    IO.inspect(three)",
-               "    IO.inspect(four)",
+               "",
+               "    IO.inspect(",
+               "      four: four,",
+               "      force_format_on_new_line_with_really_long_atom: true",
+               "    )",
                "",
                "    # comment",
                "  end",
@@ -74,7 +82,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "    IO.inspect(three)",
                "    four = 4",
                "    IO.inspect(three)",
-               "    IO.inspect(four)",
+               "",
+               "    IO.inspect(",
+               "      four: four,",
+               "      force_format_on_new_line_with_really_long_atom: true",
+               "    )",
                "",
                "    # comment",
                "  end",
@@ -101,7 +113,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "  def foo(one, two) do",
                "    {three, four} = bar(one, two)",
                "    IO.inspect(three)",
-               "    IO.inspect(four)",
+               "",
+               "    IO.inspect(",
+               "      four: four,",
+               "      force_format_on_new_line_with_really_long_atom: true",
+               "    )",
                "",
                "    # comment",
                "  end",
@@ -130,7 +146,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "defmodule Baz4 do",
                "  def foo(one, two) do",
                "    four = bar(one, two)",
-               "    IO.inspect(four)",
+               "",
+               "    IO.inspect(",
+               "      four: four,",
+               "      force_format_on_new_line_with_really_long_atom: true",
+               "    )",
                "",
                "    # comment",
                "  end",
@@ -142,7 +162,41 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "    IO.inspect(three)",
                "    four = 4",
                "    IO.inspect(three)",
+               "",
                "    four",
+               "  end",
+               "end"
+             ] ==
+               source |> String.split("\n")
+
+      Code.eval_string(source)
+    end
+
+    @tag no: 5
+    test "extracts when extract partial function call", %{quoted: quoted} do
+      zipper = ExtractFunction.extract_function(Z.zip(quoted), 10, 10, :bar)
+      source = Sourceror.to_string(zipper)
+
+      assert [
+               "defmodule Baz5 do",
+               "  def foo(one, two) do",
+               "    three = 3",
+               "    IO.inspect(one)",
+               "    IO.inspect(two)",
+               "    IO.inspect(three)",
+               "    four = 4",
+               "    IO.inspect(three)",
+               "",
+               "    bar(four)",
+               "",
+               "    # comment",
+               "  end",
+               "",
+               "  def bar(four) do",
+               "    IO.inspect(",
+               "      four: four,",
+               "      force_format_on_new_line_with_really_long_atom: true",
+               "    )",
                "  end",
                "end"
              ] ==
@@ -153,33 +207,51 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
   end
 
   describe "extract_lines/3" do
+    @tag no: 20
     test "extract one line to function", %{quoted: quoted} do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 3, 3)
 
-      assert "defmodule Baz do\n  def foo(one, two) do\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n    IO.inspect(four)\n\n    # comment\n  end\nend" ==
+      assert "defmodule Baz20 do\n  def foo(one, two) do\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" ==
                Sourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
-               "{:def_end, 11}",
+               "{:def_end, 15}",
                "{:lines, [three = 3]}",
                _,
                "{:vars, [:one, :two, :three, :four]}"
              ] = lines |> Enum.map(&Sourceror.to_string(&1))
     end
 
+    @tag no: 21
     test "extract multiple lines to function", %{quoted: quoted} do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 3, 4)
 
-      assert "defmodule Baz do\n  def foo(one, two) do\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n    IO.inspect(four)\n\n    # comment\n  end\nend" =
+      assert "defmodule Baz21 do\n  def foo(one, two) do\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" =
                Sourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
-               "{:def_end, 11}",
+               "{:def_end, 15}",
                "{:lines, [three = 3, IO.inspect(one)]}",
                _,
                "{:vars, [:two, :three, :four]}"
+             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+    end
+
+    @tag no: 22
+    test "extract multi-line function call to function", %{quoted: quoted} do
+      {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 10, 10)
+
+      assert "defmodule Baz22 do\n  def foo(one, two) do\n    three = 3\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    # comment\n  end\nend" =
+               Sourceror.to_string(zipper)
+
+      assert [
+               "{:def, :foo}",
+               "{:def_end, 15}",
+               "{:lines,\n [\n   IO.inspect(\n     four: four,\n     force_format_on_new_line_with_really_long_atom: true\n   )\n ]}",
+               "{:replace_with, nil}",
+               "{:vars, []}"
              ] = lines |> Enum.map(&Sourceror.to_string(&1))
     end
   end

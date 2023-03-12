@@ -9,14 +9,17 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   Return zipper containing AST with extracted function.
   """
   def extract_function(zipper, start_line, end_line, function_name) do
-    {quoted, acc} = extract_lines(zipper, start_line, end_line, function_name)
-    zipper = Z.zip(quoted)
+    {quoted_after_extract, acc} = extract_lines(zipper, start_line, end_line, function_name)
 
-    declares = vars_declared(function_name, [], acc.lines) |> Enum.uniq()
-    used = vars_used(function_name, [], acc.lines) |> Enum.uniq()
-    args = Enum.map(used -- declares, fn var -> {var, [], nil} end)
-    returns = declares |> Enum.filter(&(&1 in acc.vars))
-    {zipper, extracted} = return_declared(zipper, returns, function_name, args, acc.lines)
+    new_function_zipper = new_function(function_name, [], acc.lines) |> Z.zip()
+    declared_vars = vars_declared(new_function_zipper) |> Enum.uniq()
+    used_vars = vars_used(new_function_zipper) |> Enum.uniq()
+
+    args = used_vars -- declared_vars
+    returns = declared_vars |> Enum.filter(&(&1 in acc.vars))
+
+    {zipper, extracted} =
+      add_returned_vars(Z.zip(quoted_after_extract), returns, function_name, args, acc.lines)
 
     enclosing = acc.def
 
@@ -101,11 +104,8 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     next_remove_range(zipper, from, to, acc)
   end
 
-  defp vars_declared(function_name, args, lines) do
-    function_name
-    |> new_function(args, lines)
-    |> Z.zip()
-    |> vars_declared(%{vars: []})
+  defp vars_declared(new_function_zipper) do
+    vars_declared(new_function_zipper, %{vars: []})
   end
 
   defp vars_declared(nil, acc) do
@@ -124,11 +124,8 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     |> vars_declared(acc)
   end
 
-  defp vars_used(function_name, args, lines) do
-    function_name
-    |> new_function(args, lines)
-    |> Z.zip()
-    |> vars_used(%{vars: []})
+  defp vars_used(new_function_zipper) do
+    vars_used(new_function_zipper, %{vars: []})
   end
 
   defp vars_used(nil, acc) do
@@ -147,53 +144,53 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     |> vars_used(acc)
   end
 
-  defp return_declared(zipper, nil = _declares, function_name, args, lines) do
-    {zipper, new_function(function_name, args, lines)}
+  defp add_returned_vars(zipper, _returns = [], function_name, args, lines) do
+    args = var_ast(args)
+
+    {
+      replace_function_call(zipper, function_name, {function_name, [], args}),
+      new_function(function_name, args, lines)
+    }
   end
 
-  defp return_declared(zipper, [var], function_name, args, lines) when is_atom(var) do
-    zipper =
-      zipper
-      |> top_find(fn
-        {^function_name, [], []} -> true
-        _ -> false
-      end)
-      |> Z.replace({:=, [], [{var, [], nil}, {function_name, [], args}]})
+  defp add_returned_vars(zipper, returns, function_name, args, lines) when is_list(returns) do
+    args = var_ast(args)
+    returned_vars = returned(returns)
 
-    {zipper, new_function(function_name, args, Enum.concat(lines, [{var, [], nil}]))}
+    {
+      replace_function_call(
+        zipper,
+        function_name,
+        {:=, [], [returned_vars, {function_name, [], args}]}
+      ),
+      new_function(function_name, args, Enum.concat(lines, [returned_vars]))
+    }
   end
 
-  defp return_declared(zipper, declares, function_name, args, lines) when is_list(declares) do
-    declares = Enum.reduce(declares, {}, fn var, acc -> Tuple.append(acc, {var, [], nil}) end)
+  defp var_ast(vars) when is_list(vars) do
+    Enum.map(vars, &var_ast/1)
+  end
 
-    zipper =
-      zipper
-      |> top_find(fn
-        {^function_name, [], []} -> true
-        _ -> false
-      end)
-      |> Z.replace(
-        {:=, [],
-         [
-           {:__block__, [],
-            [
-              declares
-            ]},
-           {function_name, [], args}
-         ]}
-      )
+  defp var_ast(var) when is_atom(var) do
+    {var, [], nil}
+  end
 
-    {zipper,
-     new_function(
-       function_name,
-       args,
-       Enum.concat(lines, [
-         {:__block__, [],
-          [
-            declares
-          ]}
-       ])
-     )}
+  defp returned([var]) when is_atom(var) do
+    var_ast(var)
+  end
+
+  defp returned(vars) when is_list(vars) do
+    returned = vars |> var_ast() |> List.to_tuple()
+    {:__block__, [], [returned]}
+  end
+
+  defp replace_function_call(zipper, function_name, replace_with) do
+    zipper
+    |> top_find(fn
+      {^function_name, [], []} -> true
+      _ -> false
+    end)
+    |> Z.replace(replace_with)
   end
 
   defp new_function(function_name, args, lines) do
