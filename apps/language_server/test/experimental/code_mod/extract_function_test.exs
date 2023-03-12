@@ -204,6 +204,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
 
       Code.eval_string(source)
     end
+
+    @tag no: 6
+    test "errors when extract on second line of multi-line function call", %{quoted: quoted} do
+      {:error, :not_extractable} = ExtractFunction.extract_function(Z.zip(quoted), 11, 11, :bar)
+    end
   end
 
   describe "extract_lines/3" do
@@ -250,6 +255,22 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "{:def, :foo}",
                "{:def_end, 15}",
                "{:lines,\n [\n   IO.inspect(\n     four: four,\n     force_format_on_new_line_with_really_long_atom: true\n   )\n ]}",
+               "{:replace_with, nil}",
+               "{:vars, []}"
+             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+    end
+
+    @tag no: 23
+    test "noop when second line of multi-line function call", %{quoted: quoted} do
+      {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 11, 11)
+
+      assert "defmodule Baz23 do\n  def foo(one, two) do\n    three = 3\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" =
+               Sourceror.to_string(zipper)
+
+      assert [
+               "{:def, :foo}",
+               "{:def_end, 15}",
+               "{:lines, []}",
                "{:replace_with, nil}",
                "{:vars, []}"
              ] = lines |> Enum.map(&Sourceror.to_string(&1))

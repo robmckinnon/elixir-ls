@@ -10,27 +10,30 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   """
   def extract_function(zipper, start_line, end_line, function_name) do
     {quoted_after_extract, acc} = extract_lines(zipper, start_line, end_line, function_name)
+    if Enum.empty?(acc.lines) do
+      {:error, :not_extractable}
+    else
+      new_function_zipper = new_function(function_name, [], acc.lines) |> Z.zip()
+      declared_vars = vars_declared(new_function_zipper) |> Enum.uniq()
+      used_vars = vars_used(new_function_zipper) |> Enum.uniq()
 
-    new_function_zipper = new_function(function_name, [], acc.lines) |> Z.zip()
-    declared_vars = vars_declared(new_function_zipper) |> Enum.uniq()
-    used_vars = vars_used(new_function_zipper) |> Enum.uniq()
+      args = used_vars -- declared_vars
+      returns = declared_vars |> Enum.filter(&(&1 in acc.vars))
 
-    args = used_vars -- declared_vars
-    returns = declared_vars |> Enum.filter(&(&1 in acc.vars))
+      {zipper, extracted} =
+        add_returned_vars(Z.zip(quoted_after_extract), returns, function_name, args, acc.lines)
 
-    {zipper, extracted} =
-      add_returned_vars(Z.zip(quoted_after_extract), returns, function_name, args, acc.lines)
+      enclosing = acc.def
 
-    enclosing = acc.def
-
-    zipper
-    |> top_find(fn
-      {:def, _meta, [{^enclosing, _, _}, _]} -> true
-      _ -> false
-    end)
-    |> Z.insert_right(extracted)
-    |> fix_block()
-    |> Z.root()
+      zipper
+      |> top_find(fn
+        {:def, _meta, [{^enclosing, _, _}, _]} -> true
+        _ -> false
+      end)
+      |> Z.insert_right(extracted)
+      |> fix_block()
+      |> Z.root()
+    end
   end
 
   @doc """
