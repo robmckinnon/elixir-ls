@@ -37,7 +37,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
   describe "extract_function" do
     @tag no: 1
     test "extract one line to function", %{quoted: quoted} do
-      zipper = ExtractFunction.extract_function(Z.zip(quoted), 3, 3, :bar)
+      zipper = ExtractFunction.extract_function(Z.zip(quoted), 3, 3, "bar")
       source = Sourceror.to_string(zipper)
 
       assert [

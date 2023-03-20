@@ -9,6 +9,9 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   Return zipper containing AST with extracted function.
   """
   def extract_function(zipper, start_line, end_line, function_name) do
+    function_name =
+      if is_binary(function_name), do: String.to_atom(function_name), else: function_name
+
     {quoted_after_extract, acc} = extract_lines(zipper, start_line, end_line, function_name)
     if Enum.empty?(acc.lines) do
       {:error, :not_extractable}
