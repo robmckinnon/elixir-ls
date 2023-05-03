@@ -1,4 +1,5 @@
 defmodule ElixirLS.LanguageServer.Experimental.Provider.Handlers.CodeAction do
+  alias ElixirLS.LanguageServer.Experimental.Provider.CodeAction.RefactorExtractFunction
   alias ElixirLS.LanguageServer.Experimental.Provider.CodeAction.ReplaceRemoteFunction
   alias ElixirLS.LanguageServer.Experimental.Provider.CodeAction.ReplaceWithUnderscore
   alias ElixirLS.LanguageServer.Experimental.Provider.Env
@@ -7,7 +8,11 @@ defmodule ElixirLS.LanguageServer.Experimental.Provider.Handlers.CodeAction do
 
   require Logger
 
-  @code_actions [ReplaceRemoteFunction, ReplaceWithUnderscore]
+  @code_actions [
+    RefactorExtractFunction,
+    ReplaceRemoteFunction,
+    ReplaceWithUnderscore
+  ]
 
   def handle(%Requests.CodeAction{} = request, %Env{}) do
     code_actions =
