@@ -6,6 +6,10 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.RefactorExtractFunction d
 
   require Logger
 
+  def text_edits(original_text, tree, range) do
+    text_edits(original_text, tree, range.start.line, range.end.line, :extracted_function)
+  end
+
   def text_edits(original_text, tree, start_line, end_line, new_function_name) do
     result =
       tree
