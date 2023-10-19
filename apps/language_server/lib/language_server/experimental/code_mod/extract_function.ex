@@ -8,11 +8,15 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   @doc """
   Return zipper containing AST with extracted function.
   """
-  def extract_function(zipper, start_line, end_line, function_name) do
-    function_name =
-      if is_binary(function_name), do: String.to_atom(function_name), else: function_name
+  def extract_function(zipper, start_line, end_line, function_name)
+      when is_binary(function_name) do
+    extract_function(zipper, start_line, end_line, String.to_atom(function_name))
+  end
 
+  def extract_function(%Z{} = zipper, start_line, end_line, function_name)
+      when is_integer(start_line) and is_integer(end_line) and is_atom(function_name) do
     {quoted_after_extract, acc} = extract_lines(zipper, start_line, end_line, function_name)
+
     if Enum.empty?(acc.lines) do
       {:error, :not_extractable}
     else
@@ -42,7 +46,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   @doc """
   Return zipper containing AST for lines in the range from-to.
   """
-  def extract_lines(zipper, start_line, end_line, replace_with \\ nil) do
+  def extract_lines(%Z{} = zipper, start_line, end_line, replace_with \\ nil) do
     remove_range(zipper, start_line, end_line, %{
       lines: [],
       def: nil,
@@ -52,19 +56,21 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     })
   end
 
-  defp next_remove_range(zipper, from, to, acc) do
-    if next = Z.next(zipper) do
-      remove_range(next, from, to, acc)
-    else
+  defp next_remove_range(%Z{} = zipper, from, to, acc) do
+    next = Z.next(zipper)
+
+    if is_nil(next) || next.node == true do
       # return zipper with lines removed
       {
-        elem(Z.top(zipper), 0),
+        Z.top(zipper).node,
         %{acc | lines: Enum.reverse(acc.lines), vars: Enum.reverse(acc.vars)}
       }
+    else
+      remove_range(next, from, to, acc)
     end
   end
 
-  defp remove_range({{:def, meta, [{marker, _, _}, _]}, _list} = zipper, from, to, acc) do
+  defp remove_range(%Z{node: {:def, meta, [{marker, _, _}, _]}} = zipper, from, to, acc) do
     acc =
       if meta[:line] < from do
         x = put_in(acc.def, marker)
@@ -76,7 +82,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     next_remove_range(zipper, from, to, acc)
   end
 
-  defp remove_range({{marker, meta, children}, _list} = zipper, from, to, acc) do
+  defp remove_range(%Z{node: {marker, meta, children}} = zipper, from, to, acc) do
     if meta[:line] < from || meta[:line] > to || marker == :__block__ do
       next_remove_range(
         zipper,
@@ -106,11 +112,11 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     end
   end
 
-  defp remove_range(zipper, from, to, acc) do
+  defp remove_range(%Z{} = zipper, from, to, acc) do
     next_remove_range(zipper, from, to, acc)
   end
 
-  defp vars_declared(new_function_zipper) do
+  defp vars_declared(%Z{} = new_function_zipper) do
     vars_declared(new_function_zipper, %{vars: []})
   end
 
@@ -118,19 +124,20 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     Enum.reverse(acc.vars)
   end
 
-  defp vars_declared({{:=, _, [{var, _, nil}, _]}, _rest} = zipper, acc) when is_atom(var) do
+  defp vars_declared(%Z{node: {:=, _, [{var, _, nil}, _]}} = zipper, acc)
+       when is_atom(var) do
     zipper
     |> Z.next()
     |> vars_declared(put_in(acc.vars, [var | acc.vars]))
   end
 
-  defp vars_declared(zipper, acc) do
+  defp vars_declared(%Z{} = zipper, acc) do
     zipper
     |> Z.next()
     |> vars_declared(acc)
   end
 
-  defp vars_used(new_function_zipper) do
+  defp vars_used(%Z{} = new_function_zipper) do
     vars_used(new_function_zipper, %{vars: []})
   end
 
@@ -138,19 +145,20 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     Enum.reverse(acc.vars)
   end
 
-  defp vars_used({{marker, _meta, nil}, _rest} = zipper, acc) when is_atom(marker) do
+  defp vars_used(%Z{node: {marker, _meta, nil}} = zipper, acc)
+       when is_atom(marker) do
     zipper
     |> Z.next()
     |> vars_used(put_in(acc.vars, [marker | acc.vars]))
   end
 
-  defp vars_used(zipper, acc) do
+  defp vars_used(%Z{} = zipper, acc) do
     zipper
     |> Z.next()
     |> vars_used(acc)
   end
 
-  defp add_returned_vars(zipper, _returns = [], function_name, args, lines) do
+  defp add_returned_vars(%Z{} = zipper, _returns = [], function_name, args, lines) do
     args = var_ast(args)
 
     {
@@ -159,7 +167,8 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     }
   end
 
-  defp add_returned_vars(zipper, returns, function_name, args, lines) when is_list(returns) do
+  defp add_returned_vars(%Z{} = zipper, returns, function_name, args, lines)
+       when is_list(returns) do
     args = var_ast(args)
     returned_vars = returned(returns)
 
@@ -190,7 +199,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
     {:__block__, [], [returned]}
   end
 
-  defp replace_function_call(zipper, function_name, replace_with) do
+  defp replace_function_call(%Z{} = zipper, function_name, replace_with) do
     zipper
     |> top_find(fn
       {^function_name, [], []} -> true
@@ -212,7 +221,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
      ]}
   end
 
-  defp fix_block(zipper) do
+  defp fix_block(%Z{} = zipper) do
     zipper
     |> top_find(fn
       {:{}, [], _children} -> true
@@ -222,13 +231,13 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
       nil ->
         zipper
 
-      {{:{}, [], [block | defs]}, meta} ->
-        {
-          {
+      %Z{node: {:{}, [], [block | defs]}, path: meta} ->
+        %Z{
+          node: {
             block,
             {:__block__, [], defs}
           },
-          meta
+          path: meta
         }
     end
   end
