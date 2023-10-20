@@ -2,7 +2,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
   alias ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction
 
   use ExUnit.Case
-  alias Sourceror.Zipper, as: Z
+  alias VendoredSourceror.Zipper, as: Z
 
   setup ctx do
     if Map.has_key?(ctx, :no_setup) do
@@ -30,7 +30,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
            end
          end
          """
-         |> Sourceror.parse_string!()}
+         |> VendoredSourceror.parse_string!()}
     end
   end
 
@@ -38,7 +38,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
     @tag no: 1
     test "extract one line to function", %{quoted: quoted} do
       zipper = ExtractFunction.extract_function(Z.zip(quoted), 3, 3, "bar")
-      source = Sourceror.to_string(zipper)
+      source = VendoredSourceror.to_string(zipper)
 
       assert [
                "defmodule Baz1 do",
@@ -106,7 +106,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
     @tag no: 3
     test "extract multiple lines with multiple returns to function", %{quoted: quoted} do
       zipper = ExtractFunction.extract_function(Z.zip(quoted), 3, 7, :bar)
-      source = Sourceror.to_string(zipper)
+      source = VendoredSourceror.to_string(zipper)
 
       assert [
                "defmodule Baz3 do",
@@ -140,7 +140,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
     @tag no: 4
     test "extract multiple lines with single return value to function", %{quoted: quoted} do
       zipper = ExtractFunction.extract_function(Z.zip(quoted), 3, 8, :bar)
-      source = Sourceror.to_string(zipper)
+      source = VendoredSourceror.to_string(zipper)
 
       assert [
                "defmodule Baz4 do",
@@ -175,7 +175,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
     @tag no: 5
     test "extracts when extract partial function call", %{quoted: quoted} do
       zipper = ExtractFunction.extract_function(Z.zip(quoted), 10, 10, :bar)
-      source = Sourceror.to_string(zipper)
+      source = VendoredSourceror.to_string(zipper)
 
       assert [
                "defmodule Baz5 do",
@@ -217,7 +217,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 3, 3)
 
       assert "defmodule Baz20 do\n  def foo(one, two) do\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" ==
-               Sourceror.to_string(zipper)
+               VendoredSourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
@@ -225,7 +225,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "{:lines, [three = 3]}",
                _,
                "{:vars, [:one, :two, :three, :four]}"
-             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+             ] = lines |> Enum.map(&VendoredSourceror.to_string(&1))
     end
 
     @tag no: 21
@@ -233,7 +233,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 3, 4)
 
       assert "defmodule Baz21 do\n  def foo(one, two) do\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" =
-               Sourceror.to_string(zipper)
+               VendoredSourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
@@ -241,7 +241,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "{:lines, [three = 3, IO.inspect(one)]}",
                _,
                "{:vars, [:two, :three, :four]}"
-             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+             ] = lines |> Enum.map(&VendoredSourceror.to_string(&1))
     end
 
     @tag no: 22
@@ -249,7 +249,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 10, 10)
 
       assert "defmodule Baz22 do\n  def foo(one, two) do\n    three = 3\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    # comment\n  end\nend" =
-               Sourceror.to_string(zipper)
+               VendoredSourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
@@ -257,7 +257,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "{:lines,\n [\n   IO.inspect(\n     four: four,\n     force_format_on_new_line_with_really_long_atom: true\n   )\n ]}",
                "{:replace_with, nil}",
                "{:vars, []}"
-             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+             ] = lines |> Enum.map(&VendoredSourceror.to_string(&1))
     end
 
     @tag no: 23
@@ -265,7 +265,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
       {zipper, lines} = ExtractFunction.extract_lines(Z.zip(quoted), 11, 11)
 
       assert "defmodule Baz23 do\n  def foo(one, two) do\n    three = 3\n    IO.inspect(one)\n    IO.inspect(two)\n    IO.inspect(three)\n    four = 4\n    IO.inspect(three)\n\n    IO.inspect(\n      four: four,\n      force_format_on_new_line_with_really_long_atom: true\n    )\n\n    # comment\n  end\nend" =
-               Sourceror.to_string(zipper)
+               VendoredSourceror.to_string(zipper)
 
       assert [
                "{:def, :foo}",
@@ -273,7 +273,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunctionTest do
                "{:lines, []}",
                "{:replace_with, nil}",
                "{:vars, []}"
-             ] = lines |> Enum.map(&Sourceror.to_string(&1))
+             ] = lines |> Enum.map(&VendoredSourceror.to_string(&1))
     end
   end
 end

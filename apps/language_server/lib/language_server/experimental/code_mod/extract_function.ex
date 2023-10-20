@@ -3,7 +3,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction do
   Elixir refactoring functions.
   """
 
-  alias Sourceror.Zipper, as: Z
+  alias VendoredSourceror.Zipper, as: Z
 
   @doc """
   Return zipper containing AST with extracted function.

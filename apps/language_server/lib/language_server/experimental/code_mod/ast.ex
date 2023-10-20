@@ -21,7 +21,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.Ast do
 
   def from(s, opts) when is_binary(s) do
     if opts[:include_comments] do
-      Sourceror.parse_string(s)
+      VendoredSourceror.parse_string(s)
     else
       ElixirSense.string_to_quoted(s, 1, 6, token_metadata: true)
     end
@@ -29,6 +29,6 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.Ast do
 
   @spec to_string(t()) :: String.t()
   def to_string(ast) do
-    Sourceror.to_string(ast)
+    VendoredSourceror.to_string(ast)
   end
 end

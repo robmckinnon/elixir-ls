@@ -2,7 +2,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.RefactorExtractFunction d
   alias ElixirLS.LanguageServer.Experimental.CodeMod.Diff
   alias ElixirLS.LanguageServer.Experimental.CodeMod.ExtractFunction
 
-  alias Sourceror.Zipper
+  alias VendoredSourceror.Zipper
 
   require Logger
 
@@ -15,7 +15,7 @@ defmodule ElixirLS.LanguageServer.Experimental.CodeMod.RefactorExtractFunction d
       tree
       |> Zipper.zip()
       |> ExtractFunction.extract_function(start_line + 1, end_line + 1, new_function_name)
-      |> Sourceror.to_string()
+      |> VendoredSourceror.to_string()
 
     {:ok, Diff.diff(original_text, result)}
   end
